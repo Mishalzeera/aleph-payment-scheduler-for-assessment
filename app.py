@@ -11,18 +11,21 @@ app.secret_key = os.environ.get("SECRET_KEY")
 
 # {{ context_var|tojson|safe }} for using context as js
 
+
 @app.route('/')
 def index():
     return render_template("index.html")
+
 
 @app.route('/alt-payment')
 def alt_payment():
     return render_template("alt_payment.html")
 
+
 @app.route('/payment')
 def payment():
 
-    # URL to post initial request to 
+    # URL to post initial request to
     post_url = 'https://afs.gateway.mastercard.com/api/rest/version/63/merchant/TEST100065243/session'
 
     # auth environment variables
@@ -33,10 +36,10 @@ def payment():
     post_payload = json.dumps({
         "session": {
             "authenticationLimit": 25
-            
+
         }
     })
-    
+
     # send the POST request and store in "res" variable
     res = requests.post(post_url, data=post_payload, auth=(afs_user, afs_pass))
 
@@ -46,18 +49,19 @@ def payment():
     # extract the session id
     session_id = post_response["session"]["id"]
 
-    # create put URL by conc'ing the post_url with the session_id 
+    # create put URL by conc'ing the post_url with the session_id
     put_url = f'{post_url}/{session_id}'
 
     # add in the payment amount
     put_payload = json.dumps({
-    "order":{
-       "amount":.1,
-       "currency":"BHD"
-    }
- })
+        "order": {
+            "amount": .1,
+            "currency": "BHD"
+        }
+    })
     # update the session with the payment amount
-    put_response = requests.put(put_url, data=put_payload, auth=(afs_user, afs_pass))
+    put_response = requests.put(
+        put_url, data=put_payload, auth=(afs_user, afs_pass))
 
     # convert to JSON
     response = put_response.json()
@@ -107,10 +111,10 @@ def payment():
 #         print(res.json())
 #     except:
 #         if attempt_num < 5:
-#             attempt_num += 1 
+#             attempt_num += 1
 #             res = requests.put(url, data=body, auth=(afs_user, afs_pass))
 #         else:
-#             return  
+#             return
 
 
 if __name__ == "__main__":

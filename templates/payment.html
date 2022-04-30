@@ -96,7 +96,9 @@
         // Break out of the frame.
         top.location = self.location;
       }
+
       console.log("{{session_id|safe}}")
+      
       PaymentSession.configure({
         session: "{{session_id|safe}}",
         fields: {

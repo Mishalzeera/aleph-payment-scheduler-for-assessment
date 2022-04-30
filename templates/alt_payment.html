@@ -37,7 +37,8 @@
         };
 
 
-        let AFSPromise = new Promise(()=> {
+        let AFSPromise = new Promise(()=> {});
+        let attemptNumber = 1;
 
         
         PaymentSession.configure({
@@ -109,7 +110,7 @@
             }
         });
 
-    })
+  
 
 
 
