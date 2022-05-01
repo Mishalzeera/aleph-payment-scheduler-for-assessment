@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+    {% block head_elements %}
+    
+    <!-- INCLUDE SESSION.JS JAVASCRIPT LIBRARY -->
+    <script src="https://afs.gateway.mastercard.com/form/version/63/merchant/TEST100065243/session.js"></script>
+
+
+    {% endblock %}
+
+    {% block content %}
+<h1>Confirm Payment</h1>    
+<h4>{{ response }}</h4>
+<button class="btn btn-success">Confirm</button>
+   
+    {% endblock %}
+
+  {% block extra_js %}
+
+    
+{% endblock %}

@@ -1,6 +1,7 @@
 import os
 import requests
 import json
+import secrets
 from flask import (
     Flask, render_template, request, flash, redirect, session, url_for)
 if os.path.exists("env.py"):
@@ -25,12 +26,14 @@ def alt_payment():
 @app.route('/payment')
 def payment():
 
-    # URL to post initial request to
-    post_url = 'https://afs.gateway.mastercard.com/api/rest/version/63/merchant/TEST100065243/session'
 
     # auth environment variables
     afs_user = os.environ.get("AFS_USER")
     afs_pass = os.environ.get("AFS_PASS")
+    afs_url = os.environ.get("AFS_URL")
+
+    # URL to post initial request to
+    post_url = f'https://afs.gateway.mastercard.com/api/rest/version/63/merchant/{afs_url}/session'
 
     # JSON payload to send in POST request body
     post_payload = json.dumps({
@@ -48,15 +51,21 @@ def payment():
 
     # extract the session id
     session_id = post_response["session"]["id"]
+    session['afs_session_id'] = session_id
+    
 
     # create put URL by conc'ing the post_url with the session_id
     put_url = f'{post_url}/{session_id}'
+
+    order_id = secrets.token_hex(16)
+    session['order_id'] = order_id
 
     # add in the payment amount
     put_payload = json.dumps({
         "order": {
             "amount": .1,
-            "currency": "BHD"
+            "currency": "BHD",
+            "reference": "OrdRef_" + order_id,
         }
     })
     # update the session with the payment amount
@@ -65,7 +74,8 @@ def payment():
 
     # convert to JSON
     response = put_response.json()
-
+    print(response)
+    
     # send them to the template
     context = {
         "response": response,
@@ -73,6 +83,87 @@ def payment():
     }
 
     return render_template("payment.html", **context)
+
+
+@app.route('/confirm')
+def confirm():
+    # auth environment variables
+    afs_user = os.environ.get("AFS_USER")
+    afs_pass = os.environ.get("AFS_PASS")
+    afs_url = os.environ.get("AFS_URL")
+
+    # stub_url = 'https://afs.gateway.mastercard.com/api/rest/version/63/merchant/TEST100065243/session'
+
+    order_id = session['order_id']
+
+    # this we randomly generate using secrets 
+    transaction_id = secrets.token_hex(8)
+
+
+    init_3ds_payload = json.dumps({
+	"apiOperation":"INITIATE_AUTHENTICATION",
+	"authentication":{ 
+		"acceptVersions":"3DS1,3DS2",
+	    "channel":"PAYER_BROWSER",
+	    "purpose":"PAYMENT_TRANSACTION"
+	},
+	"correlationId":"test",
+	"order":{
+		"reference": "OrdRef_" + order_id,
+    	"currency":"BHD"
+	},
+	"session": {
+		"id": session['afs_session_id']
+	},
+	"transaction": {
+		"reference": "TrxRef_" + transaction_id,
+        # "id": "TxnID_" + transaction_id
+	}
+})
+        
+    url = f'https://afs.gateway.mastercard.com/api/rest/version/63/merchant/{afs_url}/order/OrdID_{order_id}/transaction/TxnID_{transaction_id}'
+
+
+    init_3ds_res = requests.put(url, auth=(afs_user, afs_pass), data=init_3ds_payload)
+
+    init_3ds_response = init_3ds_res.json()
+
+    auth_3ds_url = 	f'https://afs.gateway.mastercard.com/api/rest/version/63/merchant/{afs_url}/order/OrdID_{order_id}/transaction/TxnID_{transaction_id}'
+
+    auth_3ds_payload = json.dumps({
+	"apiOperation": "AUTHENTICATE_PAYER",
+	"authentication":{
+		"redirectResponseUrl":	"https://google.com"
+	},
+	"correlationId":"test",
+	"device": {
+		"browser": "MOZILLA",
+	    "browserDetails": {
+			"3DSecureChallengeWindowSize": "FULL_SCREEN",
+		    "acceptHeaders": "application/json",
+		    "colorDepth": 24,
+		    "javaEnabled": "true",
+		    "language": "en-US",
+		    "screenHeight": 640,
+		    "screenWidth": 480,
+		    "timeZone": 273
+	    },
+		"ipAddress": "127.0.0.1"
+	},
+	"order":{
+		"amount":".10",
+	    "currency":"BHD"
+	},
+	"session": {
+		"id": session['afs_session_id']
+	}
+})
+
+    auth_3ds_res = requests.put(auth_3ds_url, auth=(afs_user, afs_pass), data=auth_3ds_payload)
+
+    response = auth_3ds_res.json()
+
+    return render_template("confirm.html", response=response)
 
 
 # @app.route('/update_alt')
