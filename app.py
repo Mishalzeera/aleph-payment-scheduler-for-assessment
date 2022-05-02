@@ -74,10 +74,7 @@ def payment():
         "transaction": {
 		"reference": transaction_id
 
-	    },
-        "authentication":{
-            "transactionId":transaction_id
-        }
+	    }
         })
 
     # update the session with the payment amount
@@ -100,7 +97,7 @@ def payment():
 @app.route('/confirm')
 def confirm():
     """Eventually returns a success or faliure page, not a confirm"""
-    
+
     # auth environment variables
     afs_user = os.environ.get("AFS_USER")
     afs_pass = os.environ.get("AFS_PASS")
@@ -117,9 +114,9 @@ def confirm():
 	"session": {
 		"id": session['afs_session_id']
 	},
-	"authentication":{
-		"transactionId":transaction_id
-	},
+	# "authentication":{
+	# 	"transactionId": session['order_id']
+	# },
 	"order": {
 		"amount":1.50,
 		"currency": "BHD",
