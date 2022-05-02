@@ -85,7 +85,7 @@ def payment():
     response = put_response.json()
     print(response)
     
-    # send them to the template
+    # send them to the template 
     context = {
         "response": response,
         "session_id": session_id,
@@ -96,7 +96,7 @@ def payment():
 
 @app.route('/confirm')
 def confirm():
-    """Eventually returns a success or faliure page, not a confirm"""
+    """Eventually returns a success or failiure page, not a confirm"""
 
     # auth environment variables
     afs_user = os.environ.get("AFS_USER")
@@ -104,6 +104,7 @@ def confirm():
     afs_url = os.environ.get("AFS_URL")
     afs_version = os.environ.get("AFS_VERSION")
 
+    # variables from session cookies
     order_id = session['order_id']
     transaction_id = session['transaction_id']
 
@@ -208,50 +209,6 @@ def confirm():
     }
 
     return render_template("confirm.html", **context)
-
-
-# @app.route('/confirm')
-# def confirm():
-#     # auth environment variables
-#     afs_user = os.environ.get("AFS_USER")
-#     afs_pass = os.environ.get("AFS_PASS")
-#     afs_url = os.environ.get("AFS_URL")
-#     afs_version = os.environ.get("AFS_VERSION")
-
-#     order_id = session['order_id']
-#     transaction_id = session['transaction_id']
-        
-#     url = f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/OrdID_{order_id}/transaction/TxnID_{transaction_id}'
-#     # url = f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/OrdID_{order_id}/transaction/1'
-    
-#     payload = json.dumps({
-# 	"apiOperation": "PAY",
-# 	"authentication":{
-# 		"transactionId": "TxnID_" + transaction_id
-# 	},
-# 	"order": {
-# 		"amount":1.0,
-# 		"currency": "BHD",
-# 		"reference": "OrdRef_" + order_id
-# 	},
-
-# 	"transaction": {
-# 		"reference": "TrxRef_" + transaction_id
-#         # "id": "TxnID_" + transaction_id
-# 	},
-
-# 	"session": {
-# 		"id": session['afs_session_id']
-# 	},
-# 	"sourceOfFunds": {
-# 		"type": "CARD"
-# 	}
-# })
-
-#     response = requests.post(url, auth=(afs_user, afs_pass), data=payload).json()
-
-#     return render_template("confirm.html", response=response)
-
 
 
 if __name__ == "__main__":
