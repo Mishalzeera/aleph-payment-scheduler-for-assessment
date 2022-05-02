@@ -31,26 +31,26 @@ def sec_3ds_confirm_call():
 	},
 	"correlationId":"test",
 	"order":{
-		"reference": "OrdRef_" + order_id,
+		"reference": order_id,
     	"currency":"BHD"
 	},
 	"session": {
 		"id": session['afs_session_id']
 	},
 	"transaction": {
-		"reference": "TrxRef_" + transaction_id,
+		"reference": transaction_id,
         # "id": "TxnID_" + transaction_id
 	}
-})
+	})
         
-    url = f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/OrdID_{order_id}/transaction/TxnID_{transaction_id}'
+    init_3ds_url = f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/OrdID_{order_id}/transaction/{transaction_id}'
 
 
-    init_3ds_res = requests.put(url, auth=(afs_user, afs_pass), data=init_3ds_payload)
+    init_3ds_res = requests.put(init_3ds_url, auth=(afs_user, afs_pass), data=init_3ds_payload)
 
-    init_3ds_response = init_3ds_res.json()
-
-    auth_3ds_url = 	f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/OrdID_{order_id}/transaction/TxnID_{transaction_id}'
+    init_3ds_response = init_3ds_res.json() 
+	
+    auth_3ds_url = 	f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/{order_id}/transaction/{transaction_id}'
 
     auth_3ds_payload = json.dumps({
 	"apiOperation": "AUTHENTICATE_PAYER",

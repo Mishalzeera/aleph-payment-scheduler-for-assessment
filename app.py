@@ -106,8 +106,73 @@ def confirm():
 
     order_id = session['order_id']
     transaction_id = session['transaction_id']
+
+    # 3DS AUTH BEGINS
+
+#     init_3ds_payload = json.dumps({
+# 	"apiOperation":"INITIATE_AUTHENTICATION",
+# 	"authentication":{ 
+# 		"acceptVersions":"3DS1,3DS2",
+# 	    "channel":"PAYER_BROWSER",
+# 	    "purpose":"PAYMENT_TRANSACTION"
+# 	},
+# 	"correlationId":"test",
+# 	"order":{
+# 		"reference": order_id,
+#     	"currency":"BHD"
+# 	},
+# 	"session": {
+# 		"id": session['afs_session_id']
+# 	},
+# 	"transaction": {
+# 		"reference": transaction_id,
+#         # "id": "TxnID_" + transaction_id
+# 	}
+# 	})
         
-    url = f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/{order_id}/transaction/{transaction_id}'
+#     init_3ds_url = f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/OrdID_{order_id}/transaction/{transaction_id}'
+
+
+#     init_3ds_res = requests.put(init_3ds_url, auth=(afs_user, afs_pass), data=init_3ds_payload)
+
+#     init_3ds_response = init_3ds_res.json() 
+	
+#     auth_3ds_url = 	f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/{order_id}/transaction/{transaction_id}'
+
+#     auth_3ds_payload = json.dumps({
+# 	"apiOperation": "AUTHENTICATE_PAYER",
+# 	"authentication":{
+# 		"redirectResponseUrl":	"https://google.com"
+# 	},
+# 	"correlationId":"test",
+# 	"device": {
+# 		"browser": "MOZILLA",
+# 	    "browserDetails": {
+# 			"3DSecureChallengeWindowSize": "FULL_SCREEN",
+# 		    "acceptHeaders": "application/json",
+# 		    "colorDepth": 24,
+# 		    "javaEnabled": "true",
+# 		    "language": "en-US",
+# 		    "screenHeight": 640,
+# 		    "screenWidth": 480,
+# 		    "timeZone": 273
+# 	    },
+# 		"ipAddress": "127.0.0.1"
+# 	},
+# 	"order":{
+# 		"amount":".10",
+# 	    "currency":"BHD"
+# 	},
+# 	"session": {
+# 		"id": session['afs_session_id']
+# 	}
+# })
+
+#     auth_3ds_res = requests.put(auth_3ds_url, auth=(afs_user, afs_pass), data=auth_3ds_payload)
+
+    # 3DS AUTH ENDS
+        
+    pay_url = f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/{order_id}/transaction/{transaction_id}'
 
     payload = json.dumps({
 	"apiOperation": "PAY",
@@ -134,7 +199,7 @@ def confirm():
 	}
 })
 
-    response = requests.put(url, auth=(afs_user, afs_pass), data=payload).json()
+    response = requests.put(pay_url, auth=(afs_user, afs_pass), data=payload).json()
 
     context = {
         "response": response,
