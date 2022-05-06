@@ -67,10 +67,10 @@ def payment():
     session['order_amount'] = order_amount
     session['order_currency'] = order_currency
 
-    # URL to put to
-    put_url = f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/session/{session_id}'
+    # will generate the transaction ids later when we need them to reduce stuff passed in cookies
 
-    # JSON payload to send in PUT request body
+    # update afs session with order details
+    put_url = f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/session/{session_id}'
     put_payload = json.dumps({
         "order": {
             "id": order_id,
@@ -78,14 +78,9 @@ def payment():
             "currency": order_currency
         }
     })
+    put_response = requests.put(put_url, data=put_payload, auth=(afs_user, afs_pass)).json()
 
-    # send the POST request and store in "res" variable
-    res = requests.put(put_url, data=put_payload, auth=(afs_user, afs_pass))
-
-    # convert JSON response to Python dict
-    put_response = res.json()
-
-    # print order details to confirm
+    # confirm order details by extracting from put_response - if this is fine we can remove the order details from the local cookie
     print("order details from put response")
     print("id", put_response["order"]["id"])
     print("amount", put_response["order"]["currency"], put_response["order"]["amount"])
@@ -112,8 +107,8 @@ def confirm():
     # extract variables from session cookies
     session_id = session['afs_session_id']
     order_id = session['order_id']
-    order_amount = session['order_amount']
-    order_currency = session['order_currency']
+    order_amount = session['order_amount'] # can remove this once i'm done to help clean up
+    order_currency = session['order_currency'] # can remove this once i'm done to help clean up
 
     print("order details from cookie:")
     print("id", order_id)
@@ -122,9 +117,20 @@ def confirm():
     print("------------------------ begin confirming payment ------------------")
 
     print("session id is", session_id)
-  
+
+    # now time to generate some transaction ids based on need:
+
+    transaction_id_3ds = secrets.token_hex(8)
+    print("transaction id for 3ds is", transaction_id_3ds)
+
+    transaction_id_3ds_auth = secrets.token_hex(8)
+    print("transaction id for 3ds auth is", transaction_id_3ds_auth)
+
+    transaction_id_pay = secrets.token_hex(8)
+    print("transaction id for payment is", transaction_id_pay)
+
     auth_token = ""
-    auth_available = False
+    auth_available = True
 
 #     # 3DS AUTH BEGINS
 
@@ -134,29 +140,34 @@ def confirm():
 # As soon as you have the card number, invoke the Initiate Authentication operation with the payment session identifier. It is recommended that you perform this asynchronously, so that the payer can continue filling out payment details.
 # recommended flow: https://afs.gateway.mastercard.com/api/documentation/apiDocumentation/threeds/version/57/api.html?locale=en_US
 
-    # each request needs a separate transaction id
-    transaction_id = secrets.token_hex(8)
-    print("transaction id", transaction_id, "init 3ds")
 
-    init_3ds_url = f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/{order_id}/transaction/{transaction_id}'
+    init_3ds_url = f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/{order_id}/transaction/{transaction_id_3ds}'
 
     init_3ds_payload = json.dumps({
-        "apiOperation":"INITIATE_AUTHENTICATION",
+        "apiOperation": "INITIATE_AUTHENTICATION",
+        "authentication": {
+            "acceptVersions": "3DS1,3DS2",
+            "channel": "PAYER_BROWSER",
+            "purpose": "PAYMENT_TRANSACTION"
+        },
+        "correlationId": "test",
         "session": {
             "id": session_id
         },
         "order":{
-            "currency": order_currency
+            "currency": order_currency,
+            "reference": order_id
         }
+        # ,
+        # "transaction":{
+        #     "reference": transaction_id_3ds #this must reference t
+        # }
 	})
         
-    init_3ds_res = requests.put(init_3ds_url, data=init_3ds_payload, auth=(afs_user, afs_pass))
-
-    init_3ds_response = init_3ds_res.json() 
-
-    # print(init_3ds_response)
+    init_3ds_res = requests.put(init_3ds_url, data=init_3ds_payload, auth=(afs_user, afs_pass)).json()
+    print(json.dumps(init_3ds_res,indent=4,sort_keys=True))
 	
-    auth_available = init_3ds_response["transaction"]["authenticationStatus"] == "AUTHENTICATION_AVAILABLE"
+    # auth_available = init_3ds_response["transaction"]["authenticationStatus"] == "AUTHENTICATION_AVAILABLE"
     
     print("authentication available", auth_available)
 
@@ -164,15 +175,12 @@ def confirm():
     if auth_available: 
         print("----------------------- 3DS authentication -------------------------")
 
-        transaction_id = secrets.token_hex(8)
-        print("transaction id", transaction_id, "3ds auth")
-
-        auth_3ds_url = 	f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/{order_id}/transaction/{transaction_id}'
+        auth_3ds_url = 	f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/{order_id}/transaction/{transaction_id_3ds_auth}'
 
         auth_3ds_payload = json.dumps({
             "apiOperation": "AUTHENTICATE_PAYER",
             "authentication":{
-                "redirectResponseUrl":	"https://google.com"
+                "redirectResponseUrl":	"https://google.com" # server page to redirect back to once the 3ds process is done?
             },
 
             "order": {
@@ -185,53 +193,32 @@ def confirm():
             }
         })
 
-        auth_3ds_res = requests.put(auth_3ds_url, auth=(afs_user, afs_pass), data=auth_3ds_payload)
-        auth_3ds_response = auth_3ds_res.json()
-        auth_token = auth_3ds_response["authentication"]["3ds"]["authenticationToken"]
-        print("auth token", auth_token)
+        auth_3ds_res = requests.put(auth_3ds_url, auth=(afs_user, afs_pass), data=auth_3ds_payload).json()
+        print(json.dumps(auth_3ds_res,indent=4,sort_keys=True))
+	
+        # auth_token = auth_3ds_response["authentication"]["3ds"]["authenticationToken"]
+        # print("auth token", auth_token)
         # print(auth_3ds_response)
 
 #     3DS AUTH ENDS
     
-    print("--------------------------------------- initiating payment ------------------------")
+    print("----------------------- initiating payment ------------------------")
 
-    transaction_id = secrets.token_hex(8)
-    print("transaction id", transaction_id, "pay")
+    pay_url = f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/{order_id}/transaction/{transaction_id_pay}'
 
-    pay_url = f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/{order_id}/transaction/{transaction_id}'
-
-    if auth_available:
-        payload = json.dumps({
-
+    payload_dict = {
         "apiOperation": "PAY",
-        "authentication":{
-            "3ds":{
-                "authenticationToken": auth_token
-            }
+        "authentication": {
+            "transactionId": transaction_id_3ds_auth
         },
-
-        "order": {
-            "amount": order_amount,
-            "currency": order_currency
-        },
-
-        "session": {
-            "id": session_id
-        },
-
-        "sourceOfFunds": {
-            "type": "CARD"  
-        }
-        })
-    else:
-        payload = json.dumps({
-
-        "apiOperation": "PAY",
         "order": {
             "amount": order_amount,
             "currency": order_currency,
+            "reference": order_id
         },
-
+        "transaction": {
+            "reference": transaction_id_pay
+        },
         "session": {
             "id": session_id
         },
@@ -239,7 +226,16 @@ def confirm():
         "sourceOfFunds": {
             "type": "CARD"  
         }
-        })
+    }
+
+    # if auth_available:
+    #     payload_dict['authentication'] = {
+    #         "3ds":{
+    #             "authenticationToken": auth_token
+    #         }
+    #     }
+
+    payload = json.dumps(payload_dict)
 
     response = requests.put(pay_url, data=payload, auth=(afs_user, afs_pass)).json()
 
