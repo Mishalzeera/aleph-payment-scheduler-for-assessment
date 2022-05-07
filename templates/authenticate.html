@@ -25,7 +25,7 @@
 {% block content %}
   <h1>Authentication</h1>
   <!-- div for 3ds JS  -->
-  <div id="3DSUI"></div>  
+  <!-- <div id="3DSUI"></div>   -->
   <!-- <h4>{{ response }}</h4>
   <a href="{{ url_for('carddetails')}}"><button class="btn btn-success">Try Again</button></a> -->
 {% endblock %}
@@ -62,7 +62,7 @@
     //The output of the following code might look like "ThreeDS JS API Version : 1.2.0" ------------- actually returns undefined(?)
     console.log("ThreeDS JS API Version : " + ThreeDS.version);
 
-    ThreeDS.initiateAuthentication("{{order_id}}", "{{transaction_id}}", function (data) {
+    ThreeDS.initiateAuthentication("{{order_id}}", "{{transaction_id_3ds}}", function (data) {
         if (data && data.error) {
             console.log("------------------------- 3ds init error --------------------------")
             var error = data.error;
@@ -89,7 +89,7 @@
                   console.log("------------------------- 3ds auth - ok to proceed with auth --------------------------")
 
                   // authenticatePayer();//merchant's method
-                  ThreeDS.authenticatePayer("{{order_id}}", "{{transaction_id}}", function (data) {
+                  ThreeDS.authenticatePayer("{{order_id}}", "{{transaction_id_3ds}}", function (data) {
                       if (!data.error) {
                           //data.response will contain all the response payload from the AUTHENTICATE_PAYER call.
                           console.log("REST API response ", data.restApiResponse); // API response is PENDING while user hasn't clicked

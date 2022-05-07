@@ -44,34 +44,31 @@ def carddetails():
     })
 
     # send the POST request and store in "res" variable
-    res = requests.post(post_url, data=post_payload, auth=(afs_user, afs_pass))
+    post_res = requests.post(post_url, data=post_payload, auth=(afs_user, afs_pass)).json()
 
-    # convert JSON response to Python dict
-    post_response = res.json()
+    post_response = json.dumps(post_res,indent=4,sort_keys=True)
 
-    # print(post_response)
+    print(post_response)
 
     # extract the session id
-    session_id = post_response["session"]["id"]
+    session_id = post_res['session']['id']
 
     print("session id is", session_id)
 
     # and store it in session cookie
     session['afs_session_id'] = session_id
     
-    print("----------------------------------- update session with order details ------------------------")
+    # print("----------------------------------- update session with order details ------------------------")
 
     # generate order_id and store in the session cookie
     order_id = secrets.token_hex(8)
-    order_amount = 1.5
+    order_amount = 2.3
     order_currency = "BHD"
     session['order_id'] = order_id
     session['order_amount'] = order_amount
     session['order_currency'] = order_currency
 
-    # will generate the transaction ids later when we need them to reduce stuff passed in cookies
-
-    # update afs session with order details
+    # # update afs session with order details
     put_url = f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/session/{session_id}'
     put_payload = json.dumps({
         "order": {
@@ -80,12 +77,12 @@ def carddetails():
             "currency": order_currency
         }
     })
-    put_response = requests.put(put_url, data=put_payload, auth=(afs_user, afs_pass)).json()
 
-    # # confirm order details by extracting from put_response - if this is fine we can remove the order details from the local cookie
-    # print("order details from put response")
-    # print("id", put_response['order']['id'])
-    # print("amount", put_response['order']['currency'], put_response['order']['amount'])
+    put_res = requests.put(put_url, data=put_payload, auth=(afs_user, afs_pass)).json()
+
+    put_response = json.dumps(put_res,indent=4,sort_keys=True)
+
+    print(put_response)
 
     # send them to the template 
     context = {
@@ -109,9 +106,7 @@ def authenticate():
     # extract variables from session cookies
     session_id = session['afs_session_id']
     order_id = session['order_id']
-    order_amount = session['order_amount'] # can remove this once i'm done to help clean up
-    order_currency = session['order_currency'] # can remove this once i'm done to help clean up
-
+     
     # ONLY USEFUL FOR THREEDS JS API LIBRARY - CAN BUNDLE INTO SINGLE REQUEST FOR 3DS SERVER API
 
     # print("----------------------- updating session with auth details -------------------------")
@@ -165,18 +160,9 @@ def authenticate():
             "channel": "PAYER_BROWSER",
             "purpose": "PAYMENT_TRANSACTION"
         },
-        # "correlationId": "test",
         "session": {
             "id": session_id
         }
-        # "order":{
-        #     "currency": order_currency,
-        #     "reference": order_id
-        # }
-        # ,
-        # "transaction":{
-        #     "reference": transaction_id_3ds #this must reference t
-        # }
 	})
         
     init_3ds_res = requests.put(init_3ds_url, data=init_3ds_payload, auth=(afs_user, afs_pass)).json()
@@ -209,22 +195,18 @@ def authenticate():
 
     # requires device information to generate the browser-sepcific authentication UI code
 
-    # generate transaction id for authentication
-
-    transaction_id_3ds_auth = transaction_id_3ds # secrets.token_hex(8) - must be the same order id and transaction id as the init transaction
-    print("transaction id for 3ds auth is", transaction_id_3ds_auth)
+    # AUTHENTICATE_PAYER must use the same transaction id as INITITATE_AUTHENTICATION
 
     callback_url = "http://127.0.0.1:5500/payment" #hardcoded for now
 
     print("callback URL is ", callback_url)
 
-    auth_3ds_url = 	f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/{order_id}/transaction/{transaction_id_3ds_auth}'
+    auth_3ds_url = 	f'https://afs.gateway.mastercard.com/api/rest/version/{afs_version}/merchant/{afs_url}/order/{order_id}/transaction/{transaction_id_3ds}'
 
     auth_3ds_payload = json.dumps({
         "apiOperation": "AUTHENTICATE_PAYER",
         "authentication":{
-            "redirectResponseUrl":	callback_url # callback doesn't seem to work - the generated HTML doesn't seem to go anywhere...
-            # ,"channel": "PAYER_BROWSER" -------- seems to be the default channel
+            "redirectResponseUrl":	callback_url
         },
 
         "device": {
@@ -241,12 +223,6 @@ def authenticate():
             },
             "ipAddress": "127.0.0.1"
         },
-
-        "order": {
-            "amount": order_amount,
-            "currency": order_currency
-        },
-
         "session": {
             "id": session_id
         }
@@ -277,7 +253,13 @@ def authenticate():
     print(auth_interaction)
     print("-----------------------------------------------------------------")
 
-    # send code to the template 
+    # send code to the template
+    # the injected code includes an iframe, so the callback affects the iframe not the actual browser frame.
+    # that could still be fine if the payment fails (not enoough funds for example) then stay on the authenticate page and it becomes a catch-all page for card errors?
+    # ----------> need to look at other websites for ideas on better "flow"
+
+    # stick it in the cookie for now because i don't know what information comes through in the callback's POST - post might already have this info
+    session['transaction_id_3ds'] = transaction_id_3ds
 
     context = {
 
@@ -285,14 +267,16 @@ def authenticate():
         "session_id": session_id,
         "afs_version": afs_version,
         "merchant_id": afs_url,
-        "order_id": order_id,
-        "transaction_id": transaction_id_3ds,
+        # order and transaction id only required if using 3DS JS API 
+            # "order_id": order_id, 
+            # "transaction_id_3ds": transaction_id_3ds,
+        # auth_interactio only required if using server side API
         "auth_interaction": auth_interaction
     }
 
     return render_template("authenticate.html", **context)
 
-@app.route('/payment')
+@app.route('/payment',methods=["GET","POST"])
 def payment():
 
     # auth environment variables
@@ -303,15 +287,8 @@ def payment():
 
     # extract variables from session cookies
     session_id = session['afs_session_id']
-    order_id = session['order_id']
-    order_amount = session['order_amount'] # can remove this once i'm done to help clean up
-    order_currency = session['order_currency'] # can remove this once i'm done to help clean up
-
-    print("session id is", session_id)
-
-    print("order details from cookie:")
-    print("id", order_id)
-    print("amount", order_currency, order_amount)
+    order_id = session['order_id'] # may be included in the autentication POST?
+    transaction_id_3ds = session['transaction_id_3ds']  # may be included in the autentication POST?
 
     # do payment
 
@@ -324,23 +301,11 @@ def payment():
 
     payload_dict = {
         "apiOperation": "PAY",
-        # "authentication": {
-        #     "transactionId": transaction_id_3ds_auth
-        # },
-        "order": {
-            "amount": order_amount,
-            "currency": order_currency,
-            "reference": order_id
+        "authentication": {
+            "transactionId": transaction_id_3ds
         },
-        # "transaction": {
-        #     "reference": transaction_id_pay
-        # },
         "session": {
             "id": session_id
-        },
-
-        "sourceOfFunds": {
-            "type": "CARD"  
         }
     }
 
