@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block head_elements %}
+  <!-- INCLUDE SESSION.JS JAVASCRIPT LIBRARY -->
+  <script src="https://afs.gateway.mastercard.com/form/version/{{afs_version}}/merchant/{{merchant_id}}/session.js?debug=true"></script>
+  <!-- uncomment this to use the mastercard 3ds library -->
+  <!-- <script src="https://afs.gateway.mastercard.com/static/threeDS/1.3.0/three-ds.min.js"
+    data-error="errorCallback"
+    data-cancel="cancelCallback">
+  </script> -->
+  <style>
+    div#redirectTo3ds1AcsSimple {
+      position:absolute;
+      margin-top: 5%;
+      margin-bottom: 5%;
+      margin-left: 5%;
+      margin-right: 5%;
+      width: 90%;
+      height: 90%;
+      box-shadow: 0 0 20px 0 rgba(0,0,0,0.5);
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <h1>Authentication</h1>
+  <!-- div for 3ds JS  -->
+  <div id="3DSUI"></div>  
+  <!-- <h4>{{ response }}</h4>
+  <a href="{{ url_for('carddetails')}}"><button class="btn btn-success">Try Again</button></a> -->
+{% endblock %}
+
+{% block extra_js %}
+<!-- server side 3ds injection -------- uncomment this and the associated stuff in the app.py to use the server side 3ds + injection -->
+  {{auth_interaction|safe}}
+
+<!-- mastercard javascript 3ds api -------- uncomment this to use the 3ds library -->
+  <!-- <script type="text/javascript">
+
+    console.log("----------------------------- 3ds --------------------------")
+
+    /**
+    Configure method with the configuration{} parameter set and demonstrates the state change of the ThreeDS object before and after the configure method is invoked.
+    */
+    ThreeDS.configure({
+        merchantId: "{{merchant_id}}",
+        sessionId: "{{session_id}}",
+        containerId: "3DSUI",
+        callback: function () {
+            if (ThreeDS.isConfigured())
+                console.log("Done with configure");
+        },
+        configuration: {
+            userLanguage: "en-US", //Optional parameter
+            wsVersion: 64
+        }
+    });
+
+    //The output of this call will return 'true', since the API is configured
+    console.log("ThreeDS JS API configured " + ThreeDS.isConfigured());
+
+    //The output of the following code might look like "ThreeDS JS API Version : 1.2.0" ------------- actually returns undefined(?)
+    console.log("ThreeDS JS API Version : " + ThreeDS.version);
+
+    ThreeDS.initiateAuthentication("{{order_id}}", "{{transaction_id}}", function (data) {
+        if (data && data.error) {
+            console.log("------------------------- 3ds init error --------------------------")
+            var error = data.error;
+
+            //Something bad happened, the error value will match what is returned by the Authentication API
+            console.error("error.code : ", error.code);
+            console.error("error.msg : ", error.msg);
+            console.error("error.result : ", error.result);
+            console.error("error.status : ", error.status);
+        } else {
+          console.log("------------------------- 3ds init ok ------------------------------")
+            console.log("After Initiate 3DS ", data);
+
+            //data.response will contain information like gatewayRecommendation, authentication version, etc.
+            console.log("REST API raw response ", data.restApiResponse);
+            console.log("Correlation Id", data.correlationId);
+            console.log("Gateway Recommendation", data.gatewayRecommendation);
+            console.log("HTML Redirect Code", data.htmlRedirectCode);
+            console.log("Authentication Version", data.authenticationVersion);
+
+            switch (data.gatewayRecommendation) {
+                case "PROCEED":
+
+                  console.log("------------------------- 3ds auth - ok to proceed with auth --------------------------")
+
+                  // authenticatePayer();//merchant's method
+                  ThreeDS.authenticatePayer("{{order_id}}", "{{transaction_id}}", function (data) {
+                      if (!data.error) {
+                          //data.response will contain all the response payload from the AUTHENTICATE_PAYER call.
+                          console.log("REST API response ", data.restApiResponse); // API response is PENDING while user hasn't clicked
+                          console.log("HTML redirect code", data.htmlRedirectCode);
+                          // displayReceipt(data); // no need to display 3ds receipt
+                      }
+                  }, {fullScreenRedirect: true});
+
+
+                    break;
+                case "DO_NOT_PROCEED":
+                  console.log("----- 3ds auth - card authenticatio not supported not ok to proceed  -------------")
+
+                  console.error("TRY ANOTHER PAYMENT!")
+                    // displayReceipt(data);//merchant's method, you can offer the payer the option to try another payment method.
+                    break;
+            }
+        }
+    }, {sourceOfFunds: {type:"CARD"}});
+
+    function displayReceipt(apiResponse) {
+        var responseBody = {
+            "apiResponse": apiResponse
+        };
+    
+        var xhr = new XMLHttpRequest();
+        xhr.open('PUT', '3dsreceipt', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState == XMLHttpRequest.DONE) {
+                document.documentElement.innerHTML = this.response;
+            }
+        }
+        xhr.send(JSON.stringify(responseBody));
+    }
+
+  </script> -->
+
+  {% endblock %}

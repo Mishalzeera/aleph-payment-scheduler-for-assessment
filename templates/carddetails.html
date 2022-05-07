@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+    {% block head_elements %}
+    
+    <!-- INCLUDE SESSION.JS JAVASCRIPT LIBRARY -->
+    <script src="https://afs.gateway.mastercard.com/form/version/{{afs_version}}/merchant/{{merchant_id}}/session.js"></script>
+    
+    <!-- APPLY CLICK-JACKING STYLING AND HIDE CONTENTS OF THE PAGE -->
+    <style>
+      /* Hide page by default */
+      html { display : none; }
+    </style>
+
+    {% endblock %}
+
+    {% block content %}
+    <!-- CREATE THE HTML FOR THE PAYMENT PAGE -->
+    <!-- {{response}} -->
+    <h1>Enter Card Details</h1>
+    <h3>Sample Cards</h3>
+    <p><b>5111111111111118 no 3ds</b></p>
+    <p><b>5123450000000008 3ds</b></p>
+    <p>For successful payment, 01/39, security code 100</p>
+
+    <div style="display:flex; flex-direction: column; gap: 1rem;"></div>
+      <div>Please enter your payment details:</div>
+      <h3>Credit Card</h3>
+      <div>
+        Card Number:
+        <input
+          type="text"
+          id="card-number"
+          class="input-field"
+          title="card number"
+          aria-label="enter your card number"
+          value=""
+          tabindex="1"
+          readonly
+        />
+      </div>
+      <div>
+        Expiry Month:<input
+          type="text"
+          id="expiry-month"
+          class="input-field"
+          title="expiry month"
+          aria-label="two digit expiry month"
+          value=""
+          tabindex="2"
+          readonly
+        />
+      </div>
+      <div>
+        Expiry Year:<input
+          type="text"
+          id="expiry-year"
+          class="input-field"
+          title="expiry year"
+          aria-label="two digit expiry year"
+          value=""
+          tabindex="3"
+          readonly
+        />
+      </div>
+      <div>
+        Security Code:<input
+          type="text"
+          id="security-code"
+          class="input-field"
+          title="security code"
+          aria-label="three digit CCV security code"
+          value=""
+          tabindex="4"
+          readonly
+        />
+      </div>
+      <div>
+        Cardholder Name:<input
+          type="text"
+          id="cardholder-name"
+          class="input-field"
+          title="cardholder name"
+          aria-label="enter name on card"
+          value=""
+          tabindex="5"
+          readonly
+        />
+      </div>
+      <div><a href="#"><button id="payButton" onclick="pay('card');" class="btn btn-success">Pay Now</button></a></div>
+
+    {% endblock %}
+
+    {% block extra_js %}
+
+    <!-- JAVASCRIPT FRAME-BREAKER CODE TO PROVIDE PROTECTION AGAINST IFRAME CLICK-JACKING -->
+    <script type="text/javascript">
+
+    if (self == top) {
+        // Everything checks out, show the page.
+        document.documentElement.style.display = 'block';
+      } else {
+        // Break out of the frame.
+        top.location = self.location;
+      }
+
+      console.log("----------------------- collecting card details ----------------------")
+
+      console.log("Calling PaymentSession.configure")
+      console.log("{{session_id|safe}}")
+      
+      PaymentSession.configure({
+        session: "{{session_id|safe}}",
+        fields: {
+          // ATTACH HOSTED FIELDS TO YOUR PAYMENT PAGE FOR A CREDIT CARD
+          card: {
+            number: "#card-number",
+            securityCode: "#security-code",
+            expiryMonth: "#expiry-month",
+            expiryYear: "#expiry-year",
+            nameOnCard: "#cardholder-name",
+          },
+          
+        },
+        //SPECIFY YOUR MITIGATION OPTION HERE
+        frameEmbeddingMitigation: ["javascript"],
+        callbacks: {
+          initialized: function (response) {
+            // HANDLE INITIALIZATION RESPONSE
+          },
+          formSessionUpdate: function (response) {
+            // HANDLE RESPONSE FOR UPDATE SESSION
+            if (response.status) {
+              if ("ok" == response.status) {
+                console.log(
+                  "Session updated with data: " + response.session.id
+                );
+
+                //check if the security code was provided by the user
+                if (response.sourceOfFunds.provided.card.securityCode) {
+                  console.log("Security code was provided.");
+                }
+
+                console.log("The user entered a " + response.sourceOfFunds.provided.card.scheme + " card.");
+
+                // card details collected with no errors, so can proceed to authentication page
+                location.href = "{{ url_for('authenticate')}}";
+
+              } else if ("fields_in_error" == response.status) {
+                  console.log("Session update failed with field errors.");
+                  if (response.errors.cardNumber) {
+                    console.log("Card number invalid or missing.");
+                  }
+                  if (response.errors.expiryYear) {
+                    console.log("Expiry year invalid or missing.");
+                  }
+                  if (response.errors.expiryMonth) {
+                    console.log("Expiry month invalid or missing.");
+                  }
+                  if (response.errors.securityCode) {
+                    console.log("Security code invalid.");
+                  }
+              } else if ("request_timeout" == response.status) {
+                console.log(
+                  "Session update failed with request timeout: " +
+                    response.errors.message
+                );
+              } else if ("system_error" == response.status) {
+                console.log(
+                  "Session update failed with system error: " +
+                    response.errors.message
+                );
+              }
+            } else {
+              console.log("Session update failed: " + response);
+            }
+          },
+        },
+        interaction: {
+          displayControl: {
+            formatCard: "EMBOSSED",
+            invalidFieldCharacters: "REJECT",
+          },
+        },
+      });
+
+      function pay() {
+        // UPDATE THE SESSION WITH THE INPUT FROM HOSTED FIELDS
+        console.log("Calling PaymentSession.updateSessionFromForm");
+        PaymentSession.updateSessionFromForm("card");        
+      }
+    </script>
+{% endblock %}
