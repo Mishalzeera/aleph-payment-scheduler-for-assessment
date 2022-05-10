@@ -27,3 +27,29 @@
 <a href="{{ url_for('carddetails')}}" class="btn btn-success">Start Payment</a>
 
 {% endblock %}
+
+{% block extra_js %}
+
+<script>
+  function isCalendlyEvent(e) {
+    return e.origin === "https://calendly.com" && e.data.event && e.data.event.indexOf("calendly.") === 0;
+  };
+  
+  window.addEventListener("message", function(e) {
+    if(isCalendlyEvent(e)) {
+      /* Example to get the name of the event */
+      console.log("Event name:", e.data.event);
+      console.log("All event.data", e.data);
+  
+      /* Example to get the payload of the event */
+      console.log("Event details:", e.data.payload);
+
+      // checks to see if an appointment is scheduled 
+      if(e.data.event === "calendly.event_scheduled"){
+        console.log("SPECIFIC URL", e.data.payload.event.uri)
+      }
+    }
+  });
+</script>
+
+{% endblock %}
