@@ -46,7 +46,19 @@
 
       // checks to see if an appointment is scheduled 
       if(e.data.event === "calendly.event_scheduled"){
-        console.log("SPECIFIC URL", e.data.payload.event.uri)
+
+        // extracts the uri/url from the 
+        const bookingUrl = e.data.payload.event.uri; 
+
+        let request = new XMLHttpRequest;
+
+        request.open('POST', `/get-calendly/`, true);
+        request.setRequestHeader('Content-Type', "application/json");
+        const data = {
+          'booking_url': bookingUrl
+        }
+        request.send(JSON.stringify(data))
+
       }
     }
   });
