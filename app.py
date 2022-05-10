@@ -25,12 +25,12 @@ def get_calendly():
     """
     This view acts as a listener for an Ajax call, made in index.html.
     The booking url comes from Calendly's response to an "event_scheduled" event. Appending this with /cancellation and POSTing a request results
-    in a cancellation. In the case of something weird with the bank payments
-    or whatever, this is how we can clear up an appointment time or whatever.
+    in a cancellation. 
 
     Calendly also sends other stuff in the metadata, https://developer.calendly.com/api-docs/ZG9jOjQ1Mg-calendly-developer for more ideas.
 
     """
+    # TO SKIP CANCELLATION COMMENT OUT FROM HERE..........
 
     # sent by AJAX from index.html
     booking_url = request.json['booking_url']
@@ -58,6 +58,8 @@ def get_calendly():
     response = requests.post(url, json=payload, headers=headers)
 
     print("Response DOT Text ", response.text)
+
+    # ....... TO HERE (TO SKIP CANCELLATION)
 
     return render_template("index.html")
 
